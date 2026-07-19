@@ -1,0 +1,393 @@
+:root {
+  color-scheme: dark;
+  --bg: #0a0e14;
+  --bg-elevated: #111826;
+  --border: #1f2937;
+  --text: #e6edf3;
+  --text-muted: #8b98a5;
+  --accent: #22d3ee;
+  --accent-strong: #06b6d4;
+  --success: #22c55e;
+  --success-bg: rgba(34, 197, 94, 0.12);
+  --danger: #f87171;
+  --danger-bg: rgba(248, 113, 113, 0.12);
+  --amber: #fbbf24;
+  --amber-bg: rgba(251, 191, 36, 0.12);
+  --neutral-bg: rgba(148, 163, 184, 0.14);
+  --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  --sans: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  line-height: 1.5;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+a,
+button {
+  font-family: inherit;
+}
+
+button:focus-visible,
+input:focus-visible,
+a:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.app-shell {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+}
+
+.hero {
+  text-align: center;
+  padding: 2.5rem 1rem 2rem;
+}
+
+.hero-badge {
+  display: inline-block;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.25rem 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.hero h1 {
+  font-size: 3rem;
+  margin: 0 0 0.5rem;
+  letter-spacing: -0.02em;
+}
+
+.hero-tagline {
+  font-size: 1.25rem;
+  color: var(--text);
+  margin: 0 0 1.25rem;
+}
+
+.hero-subtext {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin: 0;
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.card h2 {
+  margin-top: 0;
+  font-size: 1.15rem;
+}
+
+.card-description {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-top: -0.5rem;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  margin: 0.75rem 0;
+}
+
+.btn {
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text);
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent-strong);
+  border-color: var(--accent-strong);
+  color: #04222a;
+}
+
+.btn-primary:not(:disabled):hover {
+  background: var(--accent);
+}
+
+.btn-secondary:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.btn-accent {
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.btn-accent:not(:disabled):hover {
+  background: var(--success-bg);
+}
+
+.btn-danger-outline {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-danger-outline:not(:disabled):hover {
+  background: var(--danger-bg);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  text-transform: uppercase;
+}
+
+.badge-neutral {
+  background: var(--neutral-bg);
+  color: var(--text);
+}
+
+.badge-success {
+  background: var(--success-bg);
+  color: var(--success);
+}
+
+.badge-danger {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.badge-amber {
+  background: var(--amber-bg);
+  color: var(--amber);
+}
+
+.badge-severity-high {
+  background: var(--danger-bg);
+  color: var(--danger);
+}
+
+.status-text {
+  font-size: 0.9rem;
+  margin: 0.5rem 0;
+}
+
+.status-error {
+  color: var(--danger);
+}
+
+.status-amber {
+  color: var(--amber);
+}
+
+.muted {
+  color: var(--text-muted);
+}
+
+.mono {
+  font-family: var(--mono);
+}
+
+.commitment {
+  word-break: break-all;
+  font-size: 0.85rem;
+}
+
+.fact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1rem 0 0;
+}
+
+.fact {
+  border-top: 1px solid var(--border);
+  padding-top: 0.5rem;
+}
+
+.fact-wide {
+  grid-column: 1 / -1;
+}
+
+.fact dt {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.2rem;
+}
+
+.fact dd {
+  margin: 0;
+  font-size: 0.95rem;
+}
+
+.incident-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+  font-size: 0.9rem;
+}
+
+.tab-list {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1rem;
+}
+
+.tab-button {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-muted);
+  padding: 0.6rem 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab-button-active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.code-block {
+  background: #060a10;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1rem;
+  max-height: 420px;
+  overflow: auto;
+}
+
+.code-block pre {
+  margin: 0;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.verification-live-region {
+  min-height: 2rem;
+}
+
+.verification-result {
+  border-radius: 10px;
+  padding: 1.25rem;
+  margin-top: 0.5rem;
+  border: 1px solid var(--border);
+}
+
+.verification-pass {
+  background: var(--success-bg);
+  border-color: var(--success);
+}
+
+.verification-fail {
+  background: var(--danger-bg);
+  border-color: var(--danger);
+}
+
+.verification-headline {
+  font-size: 1.75rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  margin: 0 0 0.25rem;
+}
+
+.verification-pass .verification-headline {
+  color: var(--success);
+}
+
+.verification-fail .verification-headline {
+  color: var(--danger);
+}
+
+.verification-reason {
+  color: var(--text);
+  margin: 0 0 0.5rem;
+}
+
+.system-status {
+  padding: 1rem 1.5rem;
+}
+
+.app-footer {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 3rem;
+}
+
+.error-boundary {
+  max-width: 480px;
+  margin: 4rem auto;
+  text-align: center;
+  padding: 2rem;
+  border: 1px solid var(--danger);
+  border-radius: 12px;
+  background: var(--danger-bg);
+}
+
+@media (max-width: 600px) {
+  .hero h1 {
+    font-size: 2.25rem;
+  }
+}

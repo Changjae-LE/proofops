@@ -1,0 +1,56 @@
+pragma language_version >= 0.16;
+
+import CompactStandardLibrary;
+
+// ProofOps verification contract.
+//
+// Public ledger state holds ONLY commitments and the policy result - never the raw
+// incident log, redacted or not, and never any identifying field (account ID, ARN, IP
+// address, credential, username, or email). The private response time computed off-chain
+// by the SRE/security analyst is read here as a witness and is used only inside an
+// assertion; it is never written to a ledger field or returned from a circuit.
+export ledger incidentIdHash: Bytes<32>;
+export ledger evidenceCommitment: Bytes<32>;
+export ledger policyLimitMinutes: Uint<16>;
+export ledger policySatisfied: Boolean;
+export ledger receiptCount: Uint<32>;
+
+// Private witness supplied by the off-chain TypeScript driver: the actual number of
+// minutes between detection and containment. This value never leaves the caller's
+// machine except as an input to the zero-knowledge circuit below.
+witness responseTimeMinutes(): Uint<16>;
+
+/**
+ * Records a containment-policy verification receipt.
+ *
+ * incidentIdHashIn and evidenceCommitmentIn are public SHA-256 commitments computed
+ * off-chain (see src/lib/hashing.ts) over the incident ID and the canonicalized evidence
+ * respectively; they reveal nothing about the underlying incident content. limitMinutes
+ * is the public policy threshold (15 minutes for the bundled containment policy).
+ *
+ * The circuit asserts that the private response time is within the policy limit. If it is
+ * not, the assertion fails, no valid proof can be produced, and the transaction is
+ * rejected outright - the contract can never end up recording policySatisfied = true for
+ * an incident that actually violated the policy.
+ */
+export circuit submitReceipt(
+  incidentIdHashIn: Bytes<32>,
+  evidenceCommitmentIn: Bytes<32>,
+  limitMinutes: Uint<16>
+): [] {
+  assert(
+    responseTimeMinutes() <= limitMinutes,
+    "response time exceeds the policy containment limit"
+  );
+
+  incidentIdHash = disclose(incidentIdHashIn);
+  evidenceCommitment = disclose(evidenceCommitmentIn);
+  policyLimitMinutes = disclose(limitMinutes);
+  policySatisfied = true;
+  receiptCount = (receiptCount + 1) as Uint<32>;
+}
+
+/** Returns the number of receipts recorded so far. Public state only, no evidence. */
+export circuit getReceiptCount(): Uint<32> {
+  return receiptCount;
+}

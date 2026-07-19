@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-and-test:
+    name: Typecheck, lint, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.19"
+          cache: "npm"
+
+      - name: Install dependencies (lockfile enforced)
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+  contract:
+    name: Compact contract build and tests (real toolchain)
+    runs-on: ubuntu-latest
+    # The official Compact toolchain has no Windows binary and this job depends on
+    # downloading it from GitHub + npm at CI time; keep it informative without blocking
+    # merges on external-network flakiness. See docs/MIDNIGHT_STATUS.md.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20.19"
+
+      - name: Install compact devtools
+        run: |
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            https://github.com/midnightntwrk/compact/releases/download/compact-v0.5.1/compact-installer.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install unzip (required by `compact update`)
+        run: sudo apt-get update -y && sudo apt-get install -y unzip
+
+      - name: Update to the latest compact compiler
+        run: compact update
+
+      - name: Compile the ProofOps contract
+        run: compact compile contract/src/proofops.compact contract/dist
+
+      - name: Install contract test dependencies
+        run: npm --prefix contract install
+
+      - name: Run contract simulator tests
+        run: npm --prefix contract test

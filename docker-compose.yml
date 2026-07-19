@@ -1,0 +1,24 @@
+services:
+  proofops:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: proofops:local
+    ports:
+      - "8787:8787"
+    environment:
+      - PORT=8787
+      - VITE_PROOF_PROVIDER=local
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8787/healthz').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+# Midnight network infrastructure (proof server, node, indexer) is intentionally NOT
+# part of the default profile: this MVP's local-demo mode does not require it, and the
+# official devnet compose setup was not verified to run unattended in this environment.
+# See docs/MIDNIGHT_STATUS.md for how to point VITE_PROOF_PROVIDER=midnight at a real
+# Midnight devnet once one is available.

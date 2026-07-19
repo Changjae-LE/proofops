@@ -1,0 +1,12 @@
+node_modules/
+dist/
+dist-server/
+coverage/
+.env
+.env.local
+*.log
+.DS_Store
+contract/dist/
+contract/artifacts/
+proof-server-data/
+.playwright-shots/
