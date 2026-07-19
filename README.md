@@ -109,6 +109,14 @@ npm run contract:build
 npm run contract:test
 ```
 
+Real-network integration tests (require a reachable Midnight network - local devnet via
+`npm run midnight:env:up`, or a funded Preview/Preprod wallet; never run by plain `npm
+test`):
+
+```powershell
+npm run midnight:test:integration
+```
+
 ## Switching providers
 
 Set in `.env` (copy from `.env.example`):
@@ -123,16 +131,28 @@ badge. A local receipt is never labeled as an on-chain proof.
 
 ## Current Midnight integration status
 
-**Real and verified:** the Compact contract (`contract/src/proofops.compact`) compiles
-with the official Compact compiler (0.31.1) and passes simulator tests against the real
-`@midnight-ntwrk/compact-runtime` (0.16.0) - see `contract/README.md` and
-[`docs/MIDNIGHT_STATUS.md`](docs/MIDNIGHT_STATUS.md) for exact versions, commands, and a
-Windows-specific finding (no official Windows binary; this repo auto-delegates to WSL).
+**Real and verified:** the Compact contract compiles with the official compiler and
+passes simulator tests against the real `@midnight-ntwrk/compact-runtime`. Beyond that,
+this build performs **real end-to-end on-chain transactions**: a real headless wallet
+(`@midnight-ntwrk/testkit-js`) connects and syncs, a real contract is deployed via
+`@midnight-ntwrk/midnight-js-contracts`, a real `submitReceipt` transaction is proven and
+confirmed on-chain (real transaction ID + block height), and the ledger is independently
+re-queried afterward to confirm the private response time never appears in public state.
+Verified on a local Midnight devnet (see
+[`docs/MIDNIGHT_DEPLOYMENT.md`](docs/MIDNIGHT_DEPLOYMENT.md) for the exact transaction
+record and reproduction commands); Preprod (public testnet) verification is tracked in the
+same document.
 
-**Not implemented / not real:** on-chain transaction submission, wallet integration, and
-any live devnet/testnet deployment. `MidnightProofProvider` performs a real network
-reachability check but throws an explicit error on receipt creation rather than
-fabricating a transaction ID - see the same status doc for the honest reason why.
+**Not implemented:** Lace/browser-wallet integration (a headless server-side wallet is
+used instead - see [`docs/MIDNIGHT_STATUS.md`](docs/MIDNIGHT_STATUS.md) for why) and any
+Mainnet deployment.
+
+```powershell
+npm run midnight:env:up        # local Midnight devnet via Docker
+npm run midnight:deploy        # real contract deployment
+npm run midnight:demo          # real analyze -> submitReceipt -> ledger verify
+npm run midnight:failure-test  # confirms the policy assertion can't be bypassed
+```
 
 ## Demo flow
 
@@ -159,10 +179,12 @@ receipt, verify it, then tamper with one field and watch verification fail.
 
 ## Future work
 
-- Wire `MidnightProofProvider` to a real wallet + deployed contract + proof server.
+- Lace browser-wallet integration as an alternative to the current headless wallet.
 - Additional detection rules beyond `AWS-IMDS-ROLE-USE-001`.
 - Content-aware (not just key-name-based) redaction.
-- Multi-receipt / multi-incident history instead of "latest receipt only."
+- Multi-receipt / multi-incident ledger history (a `Map` ledger type keyed by incident ID)
+  instead of the current single-slot "latest receipt only" design.
+- Mainnet deployment once warranted.
 
 ## Hackathon track relevance
 

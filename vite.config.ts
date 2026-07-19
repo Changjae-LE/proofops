@@ -28,7 +28,11 @@ export default defineConfig({
     // (@midnight-ntwrk/compact-runtime, installed only under contract/node_modules) -
     // it must never be picked up by the root test run, which would fail on a fresh
     // checkout before `npm run contract:build` has produced contract/dist.
+    // tests/integration/** requires a real, reachable Midnight network and a funded
+    // wallet - it has its own vitest.integration.config.ts and is never part of the
+    // default (offline, CI-safe) `npm test` run.
     include: ["tests/**/*.test.ts"],
+    exclude: ["**/node_modules/**", "tests/integration/**"],
     css: false,
     coverage: {
       provider: "v8",

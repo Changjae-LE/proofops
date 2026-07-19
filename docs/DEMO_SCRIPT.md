@@ -58,11 +58,31 @@ hash - that's what makes this tamper-evident."
 
 "The Compact contract in `contract/src/proofops.compact` takes the response time as a
 private witness and only asserts it's within policy - the actual minutes never touch the
-public ledger, only the commitments and a boolean result. It's compiled and tested against
-the real Midnight toolchain today; wiring a live devnet transaction is the next step,
-tracked honestly in `docs/MIDNIGHT_STATUS.md` rather than faked."
+public ledger, only the commitments and a boolean result. This isn't just compiled and
+simulator-tested: with `VITE_PROOF_PROVIDER=midnight`, this exact flow - Connect Wallet,
+Deploy Contract, Generate Verification Receipt - submits a real transaction, gets a real
+transaction ID and block height back, and independently re-queries the ledger to confirm
+the private response time is genuinely absent. See `docs/MIDNIGHT_DEPLOYMENT.md` for an
+already-executed real run."
 
 ## 10. Impact for SRE/security teams (10s)
 
 "This turns 'trust us, we handled it' into a receipt anyone can verify - without ever
 seeing the incident."
+
+## Bonus: real Midnight network demo (local devnet, ~2 extra minutes)
+
+Only if time allows and Docker is available:
+
+```powershell
+npm run midnight:env:up
+$env:MIDNIGHT_NETWORK = "local"; $env:VITE_PROOF_PROVIDER = "midnight"
+npm run midnight:deploy   # note the printed contract address
+$env:MIDNIGHT_CONTRACT_ADDRESS = "<address>"
+npm run dev
+```
+
+In the UI: the badge now reads `MIDNIGHT NETWORK`. Click **Connect Wallet**, then repeat
+steps 2-6 above - **Generate Verification Receipt** now submits a real transaction and
+shows a real transaction ID and contract address on the receipt card instead of
+`LOCAL_DEMO`. Tear down afterward with `npm run midnight:env:down`.

@@ -10,6 +10,10 @@ export interface ProviderStatus {
   mode: ProviderMode;
   ready: boolean;
   message: string;
+  /** Only set once a wallet session has actually been established server-side. */
+  walletConnected?: boolean;
+  /** Only set once a contract has actually been deployed or joined. */
+  contractAddress?: string | null;
 }
 
 export interface CreateProofRequest {
@@ -44,4 +48,10 @@ export interface ProofProvider {
   createReceipt(request: CreateProofRequest): Promise<ProofProviderResult>;
 
   verifyReceipt(receipt: VerificationReceipt): Promise<ProofVerificationResult>;
+
+  /** Only implemented by providers backed by a real wallet (e.g. MidnightProofProvider). */
+  connectWallet?(): Promise<{ network: string; contractAddress: string | null; coinPublicKey: string }>;
+
+  /** Only implemented by providers that can deploy a new on-chain contract. */
+  deployContract?(): Promise<{ network: string; contractAddress: string }>;
 }

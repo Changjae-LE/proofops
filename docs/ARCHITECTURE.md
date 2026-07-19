@@ -2,16 +2,20 @@
 
 ## Overview
 
-ProofOps is split into three layers with a hard trust boundary between the first and the
-other two:
+ProofOps is split into four layers with a hard trust boundary between the first and the
+rest:
 
 1. **Browser-local evidence engine** (`src/lib/*`, `src/types/*`) - the only layer that
    ever sees raw incident evidence. Runs entirely client-side.
 2. **Express operational layer** (`server/*`) - serves the built frontend and exposes
    health/readiness/metrics. Never receives incident evidence.
-3. **Midnight contract boundary** (`contract/*`, `src/midnight/*`) - the (optional) path
-   to an actual privacy-preserving proof on a real network, behind a provider
-   abstraction so the rest of the app does not care which implementation is active.
+3. **Client-side provider abstraction** (`src/midnight/*`) - `ProofProvider` interface
+   selecting `LocalDemoProofProvider` or `MidnightProofProvider` (which talks only to this
+   app's own `/api/midnight/*` endpoints, never to Midnight infrastructure directly - see
+   below for why).
+4. **Real Midnight integration** (`contract/*`, `server/midnight/*`) - a real headless
+   wallet, real contract deploy/join, and real `submitReceipt` transaction submission
+   against Local devnet, Preview, or Preprod. Runs server-side only.
 
 ## Browser-local evidence processing
 
@@ -37,16 +41,27 @@ tamper-detection demo in the Verify panel.
 ## Provider abstraction
 
 `src/midnight/ProofProvider.ts` defines a single interface (`getStatus`, `createReceipt`,
-`verifyReceipt`) implemented by:
+`verifyReceipt`, plus optional `connectWallet`/`deployContract`) implemented by:
 
 - `LocalDemoProofProvider` - always available, produces `LOCAL_DEMO` receipts, never
   claims to generate a ZK proof or touch a chain.
-- `MidnightProofProvider` - performs a real reachability check against a configured proof
-  server, but throws an explicit error on `createReceipt()` rather than fabricating a
-  transaction (see `docs/MIDNIGHT_STATUS.md`).
+- `MidnightProofProvider` - calls this app's own `/api/midnight/*` endpoints
+  (`server/midnightRoutes.ts`) to connect a wallet, deploy/join a contract, submit a real
+  `submitReceipt` transaction, and independently re-query the ledger. It never fabricates
+  a transaction ID, contract address, or `MIDNIGHT_CONFIRMED` status - those only ever
+  come from a real server response after real network confirmation (see
+  `docs/MIDNIGHT_STATUS.md`).
 
 `src/midnight/providerFactory.ts` selects the active provider from
 `VITE_PROOF_PROVIDER`, defaulting to `local` so the app is always demoable.
+
+**Why the browser never talks to Midnight directly:** `VITE_*` env vars (and anything a
+browser-side module does) are inlined into the public bundle - a wallet seed/mnemonic must
+never live there. `server/midnight/*` holds the real wallet (via
+`@midnight-ntwrk/testkit-js`'s headless `FluentWalletBuilder`) and the real
+`@midnight-ntwrk/midnight-js-contracts` deploy/call code, configured via plain
+(non-`VITE_`) server-side env vars. The browser only ever sees public results: network
+name, contract address, transaction ID, confirmation status, and ledger state.
 
 ## Express operational layer
 
@@ -61,9 +76,27 @@ enum of event type strings only (`receipt_created`, `verification_run`,
 `contract/src/proofops.compact` defines the public ledger fields (commitments and policy
 result only) and a `witness`-based private response time used solely inside an `assert`.
 It is compiled with the real Compact compiler and tested with the real
-`@midnight-ntwrk/compact-runtime` simulator (`contract/tests/`) - see
-`docs/MIDNIGHT_STATUS.md` for exact versions and what remains unverified (on-chain
-submission, wallet integration).
+`@midnight-ntwrk/compact-runtime` simulator (`contract/tests/`).
+
+`contract/src/index.ts` wraps the compiled contract with `@midnight-ntwrk/compact-js`'s
+`CompiledContract` (tag, witnesses, compiled-assets path) for consumption by the real
+`@midnight-ntwrk/midnight-js-contracts` deploy/call APIs. `contract/` is a separate npm
+package (its own `node_modules`, used for the WSL-only Compact compiler toolchain and
+offline simulator tests) - it deliberately has **no dependency of its own** on
+`@midnight-ntwrk/midnight-js-protocol` or `compact-runtime`; both are resolved from the
+repository root instead. Two physically separate installations of the same package version
+still produce two separate WASM/Effect module instances that cannot recognize each other's
+branded objects - this was a real bug hit and fixed during this integration (see
+`docs/MIDNIGHT_DEPLOYMENT.md`).
+
+`server/midnight/*` is the real, server-side network integration: `config.ts` (network
+endpoints + wallet secret resolution), `wallet.ts` (headless `FluentWalletBuilder`-based
+wallet), `providers.ts` (`MidnightProviders`: private state, public data/indexer, ZK
+config, proof), `deploy.ts` (deploy/join), `receipt.ts` (submit + read ledger), and
+`session.ts` (a lazily-initialized, process-wide session so wallet sync only happens
+once). `server/midnightRoutes.ts` exposes this to the browser as `/api/midnight/status`,
+`/connect`, `/deploy`, `/receipt`, `/ledger` - see `docs/MIDNIGHT_STATUS.md` for exact
+versions and current Preprod status.
 
 ## Trust boundaries
 
@@ -76,19 +109,25 @@ flowchart LR
         Provider["ProofProvider"]
     end
 
-    subgraph Server["Express server (operational only)"]
+    subgraph Server["Express server (server/*, server/midnight/*)"]
         Health["/healthz /readyz /metrics"]
         Events["/api/events<br/>(event type string only)"]
+        MidnightAPI["/api/midnight/*<br/>(status, connect, deploy, receipt, ledger)"]
+        Wallet["headless wallet<br/>(seed/mnemonic, server-only env var)"]
     end
 
-    subgraph Midnight["Midnight network (optional, not wired to a real chain in this build)"]
+    subgraph Midnight["Midnight network (Local devnet / Preview / Preprod)"]
         Contract["proofops.compact<br/>submitReceipt()"]
     end
 
     Upload --> Analyze --> Hash --> Provider
     Provider -. "LOCAL_DEMO: no network call" .-> Provider
     Provider -. "event type only, never evidence" .-> Events
-    Provider -. "commitments + policy limit only,<br/>private response time via witness" .-> Contract
+    Provider -->|"commitments + policy limit,<br/>private response time (witness input)"| MidnightAPI
+    MidnightAPI --> Wallet
+    Wallet -->|"real submitReceipt tx"| Contract
+    Contract -->|"txId, block height,<br/>public ledger state"| MidnightAPI
+    MidnightAPI -->|"MIDNIGHT_CONFIRMED + txId"| Provider
 ```
 
 ## Data flow (happy path)

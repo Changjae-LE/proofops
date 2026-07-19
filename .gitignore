@@ -4,9 +4,15 @@ dist-server/
 coverage/
 .env
 .env.local
+.env.preview
+.env.preprod
 *.log
 .DS_Store
 contract/dist/
 contract/artifacts/
 proof-server-data/
 .playwright-shots/
+_midnight-reference/
+midnight-level-db/
+
+.env.preprod

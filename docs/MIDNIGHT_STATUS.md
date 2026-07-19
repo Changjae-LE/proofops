@@ -1,20 +1,21 @@
 # Midnight Integration Status
 
 This document records exactly what was verified against the real, official Midnight
-toolchain during this build, what remains unverified, and how to reproduce every claim
-below. Nothing in this document is aspirational - every version number and command was
-actually run in this environment.
+toolchain, what remains unverified, and how to reproduce every claim below. Nothing in
+this document is aspirational - every version number and command was actually run in this
+environment. See `docs/MIDNIGHT_DEPLOYMENT.md` for the full transaction-level record.
 
 ## Sources consulted
 
-- [docs.midnight.network](https://docs.midnight.network) - Compact language reference,
-  compiler usage, compact-tools release notes, and the DApp quickstart.
-- [github.com/midnightntwrk/compact](https://github.com/midnightntwrk/compact) - official
-  compact-devtools releases.
-- [github.com/midnightntwrk/example-counter](https://github.com/midnightntwrk/example-counter) -
-  official reference contract, CLI, and `CounterSimulator` test pattern.
-- npm registry (`@midnight-ntwrk/compact-runtime`) for the exact runtime package version
-  matched to the compiled contract's `runtime-version`.
+- [docs.midnight.network](https://docs.midnight.network) - current Compact language
+  reference, network environments (Preview/Preprod/Mainnet), release notes.
+- [github.com/midnightntwrk/example-hello-world](https://github.com/midnightntwrk/example-hello-world) -
+  official minimal headless-wallet deploy/test pattern (config/wallet/providers), used as
+  the direct template for `server/midnight/*`.
+- [github.com/midnightntwrk/example-bboard](https://github.com/midnightntwrk/example-bboard) -
+  official reference for `CompiledContract`/witnesses wiring and browser (Lace) wallet
+  integration.
+- npm registry for exact current `@midnight-ntwrk/*` package versions.
 
 ## Verified toolchain versions (as installed and run in this environment)
 
@@ -24,124 +25,130 @@ actually run in this environment.
 | Compact compiler (`compactc`, via `compact update`) | 0.31.1 |
 | Compact language version | 0.23.0 |
 | Generated contract runtime version | 0.16.0 |
-| Ledger version | ledger-8.0.2 |
+| Ledger version (compiled contract) | ledger-8.0.2 |
 | `@midnight-ntwrk/compact-runtime` (npm) | 0.16.0 |
-| Node.js (used for contract tooling) | v22.22.1 |
+| `@midnight-ntwrk/midnight-js-*` (npm, contracts/types/utils/network-id/providers) | 4.1.1 |
+| `@midnight-ntwrk/testkit-js` (npm) | 4.1.1 |
+| `@midnight-ntwrk/wallet-sdk` (npm) | 1.2.0 |
+| `midnightntwrk/proof-server` (Docker, local devnet) | 8.1.0 |
+| `midnightntwrk/indexer-standalone` (Docker, local devnet) | 4.3.3 |
+| `midnightntwrk/midnight-node` (Docker, local devnet) | 1.0.0 |
+| Node.js | v24.18.0 (Windows), v22.22.1 (WSL, contract compiler only) |
 
-Official docs state Node.js 22+ and Compact compiler 0.31.0 as current quickstart
-prerequisites; the versions above match.
+## Network selection
+
+Midnight currently runs three public environments: **Preview**, **Preprod**, and
+**Mainnet** (Mainnet launched in the Kūkolu phase, late March 2026). This build targets
+**Preprod** for real testnet verification - it is the officially recommended pre-Mainnet
+network for DApp testing, does not require real-value assets (funded via a public faucet
+with test tokens), and is what the official `example-hello-world`/`example-bboard` repos'
+own `*-remote` test scripts target. A local Docker devnet (`docker-compose.midnight.yml`)
+is also supported and used for fast, fully-offline, fully-reproducible verification of the
+same code path (no faucet, no waiting on a public chain).
 
 ## What is real
 
-- **The contract compiles with the real compiler.** `npm run contract:build` runs the
-  actual `compact compile src/proofops.compact dist` and produces real TypeScript
-  bindings, real zkir circuit files, and real proving/verifying keys
-  (`contract/dist/keys/submitReceipt.prover` is 284 KB - an actual proving key, not a
-  placeholder).
-- **The contract is tested with the real runtime.** `npm run contract:test` runs
-  `contract/tests/proofops.test.ts` against `@midnight-ntwrk/compact-runtime` 0.16.0,
-  using the same `Contract` / `createConstructorContext` / `createCircuitContext` /
-  `ledger()` APIs the official `example-counter` uses - not a hand-rolled mock. Six tests
-  pass, including "8 minutes satisfies a 15-minute policy," "16 minutes throws (proof
-  cannot be constructed)," and "the private response time never appears as a ledger key."
-- **The privacy semantics were independently confirmed from the compiler's own output**,
-  not just from the source: `contract/dist/contract/index.js` shows the `assert` on the
-  witness-derived response time executing *before* any ledger write, and the generated
-  `Ledger` type has exactly five fields, none of which is the response time.
+Everything below was independently confirmed by running the actual command, not inferred
+from source review alone. See `docs/MIDNIGHT_DEPLOYMENT.md` for the exact transaction IDs,
+block heights, and reproduction commands.
+
+- **The contract compiles with the real compiler** and its privacy semantics (assert
+  before disclose) were independently confirmed from the compiled output, as before.
+- **The contract simulator tests pass** against the real `@midnight-ntwrk/compact-runtime`
+  (`npm run contract:test`).
+- **A real headless wallet connects to a real network and syncs.** `server/midnight/wallet.ts`
+  uses `@midnight-ntwrk/testkit-js`'s `FluentWalletBuilder` (the same API the official
+  examples use for CI-style, non-browser transaction submission) to build and sync a
+  seed/mnemonic-derived wallet against Local, Preview, or Preprod.
+- **A real contract was deployed to a real (local) Midnight network** via
+  `@midnight-ntwrk/midnight-js-contracts`' `deployContract`, and the resulting contract
+  address was independently re-queried from the indexer.
+- **A real `submitReceipt` transaction was submitted, proven, and confirmed on-chain**,
+  with a real transaction hash and block height returned by the network.
+- **The ledger was independently re-queried** (a fresh `publicDataProvider.queryContractState`
+  call, not the same in-memory result from the submission) and shown to contain only the
+  five public fields - the private response time is not present in the field set, not just
+  "not shown."
+- **The policy-violation case was proven to be rejected by the network**, not just by the
+  offline simulator: submitting `responseMinutes=16` against a 15-minute limit throws
+  during real proof construction and no transaction is ever produced.
+- **Preprod (public testnet):** a real wallet was generated and funded via the public
+  faucet, and real sync attempts reached the actual Preprod indexer/node and fully synced
+  the shielded and unshielded balances. Blocked on DUST delegation (a separate manual step
+  from just funding tNIGHT - see `docs/MIDNIGHT_DEPLOYMENT.md` for the exact error and
+  required next action). The identical code path is already fully verified end-to-end on
+  Local devnet, so this is a funding/delegation gap, not a code gap.
 
 ## What is not real (and never claimed to be)
 
-- **No transaction has ever been submitted to any Midnight network** (local devnet,
-  `preview`, or `preprod`). `MidnightProofProvider.createReceipt()`
-  (`src/midnight/MidnightProofProvider.ts`) throws an explicit, descriptive error instead
-  of fabricating a transaction ID or contract address. `VerificationReceipt.status` can
-  only be `LOCAL_DEMO` in this build; `MIDNIGHT_CONFIRMED` is a defined-but-unreachable
-  value until real submission is wired up.
-- **No wallet integration exists.** Deploying the compiled contract and calling
-  `submitReceipt` for real requires the full `@midnight-ntwrk/midnight-js` provider stack,
-  a funded wallet (Lace or a headless test wallet), and a running proof server / indexer /
-  node (via `npm run setup` in the official `create-mn-app` scaffold, or a manually
-  operated devnet). Wiring that stack, and keeping it running reliably inside a hackathon
-  demo environment, was out of scope for the time available in this session - see
-  "Blockers" below.
-- **`contract/dist` is a build artifact, not a deployment.** It is gitignored and must be
+- **Mainnet.** This build only ever targets Local devnet, Preview, or Preprod - the
+  `MidnightNetwork` type does not include `mainnet`, and nothing in this codebase can
+  submit a Mainnet transaction.
+- **Lace browser-wallet integration.** The real-network path in this build uses a headless
+  (seed/mnemonic) wallet running server-side (`server/midnight/wallet.ts`), the same
+  officially-supported pattern the Midnight examples use for automated/CI transaction
+  submission - not the browser-extension (`@midnight-ntwrk/dapp-connector-api`/Lace) flow.
+  Rationale: a headless wallet is fully automatable and independently verifiable end to
+  end (as demonstrated above); a Lace-based flow would require a human to click through a
+  browser extension for every transaction and could not be verified unattended. See "UI
+  and provider architecture" below for how the browser UI still drives this without ever
+  holding the wallet secret.
+- **`contract/dist` is a build artifact, not a deployment.** Still gitignored, still
   regenerated with `npm run contract:build`.
 
-## Windows-specific finding: no native Windows binary
+## UI and provider architecture (why the wallet secret never reaches the browser)
 
-The official `compact-devtools` GitHub releases
-(`https://github.com/midnightntwrk/compact/releases`) publish only:
-
-- `compact-aarch64-apple-darwin.tar.xz`
-- `compact-x86_64-apple-darwin.tar.xz`
-- `compact-aarch64-unknown-linux-musl.tar.xz`
-- `compact-x86_64-unknown-linux-musl.tar.xz`
-- `compact-installer.sh`
-
-There is no Windows asset. `scripts/contract-build.mjs` and `scripts/contract-test.mjs`
-detect this (and specifically avoid `where compact`, which on Windows resolves to the
-**unrelated built-in NTFS `compact.exe` utility** - a real naming collision found and
-fixed during this build) and transparently shell out to WSL when running on Windows.
-
-### Exact reproduction (what this session actually ran)
-
-```bash
-# Inside WSL (Ubuntu), from a clean shell:
-curl --proto '=https' --tlsv1.2 -LsSf \
-  https://github.com/midnightntwrk/compact/releases/download/compact-v0.5.1/compact-installer.sh | sh
-source "$HOME/.local/bin/env"
-compact update                     # installs compiler 0.31.1
-sudo apt-get install -y unzip      # required by `compact update`'s extractor
-compact compile contract/src/proofops.compact contract/dist
-cd contract && npm install && npm test
-```
-
-From the repository root on Windows, the equivalent is simply:
-
-```powershell
-npm run contract:build
-npm run contract:test
-```
-
-which auto-detect Windows, locate the WSL `Ubuntu` distro, and run the same commands
-inside it.
+`VITE_*` environment variables are inlined into the public browser bundle by Vite - a
+wallet seed or mnemonic must never be one of them, even for a "just a demo" build. All
+real wallet/SDK code (`server/midnight/*`) therefore runs server-side only, using plain
+(non-`VITE_`-prefixed) environment variables read via `process.env` in Express route
+handlers (`server/midnightRoutes.ts`). The browser's `MidnightProofProvider`
+(`src/midnight/MidnightProofProvider.ts`) only ever calls this app's own
+`/api/midnight/*` endpoints over the same origin; it never talks to Midnight
+infrastructure directly and never sees a wallet secret. The private response time is
+still computed and read only by the caller until the moment it must be supplied as a
+circuit witness - it is sent to this app's own trusted server (never to a third party) and
+is asserted-then-discarded by the contract before any ledger write, exactly as before.
 
 ## Provider configuration
+
+Client-visible (safe to inline - no secrets):
 
 | Variable | Default | Effect |
 | --- | --- | --- |
 | `VITE_PROOF_PROVIDER` | `local` | `local` uses `LocalDemoProofProvider`; `midnight` uses `MidnightProofProvider`. |
-| `VITE_MIDNIGHT_NETWORK` | `undeployed` | Label shown in the UI and in receipts. |
-| `VITE_MIDNIGHT_PROOF_SERVER_URL` | `http://localhost:6300` | Checked with a real, timeboxed `fetch` in `MidnightProofProvider.getStatus()`. |
-| `VITE_MIDNIGHT_CONTRACT_ADDRESS` | (unset) | Without this, `getStatus()` reports `ready: false` and explains why. |
+| `VITE_MIDNIGHT_NETWORK` | `undeployed` | Cosmetic label only, shown before the real status loads from the server. |
 
-Switching `VITE_PROOF_PROVIDER=midnight` with no further setup does not crash the app: the
-UI shows the `MIDNIGHT NETWORK` badge, `SystemStatus` reports the provider as not ready,
-and `Generate Verification Receipt` surfaces the real error from `createReceipt()` instead
-of silently falling back to a local receipt.
+Server-only (never `VITE_`-prefixed - see `.env.example`, `.env.preprod.example`,
+`.env.preview.example`):
 
-## Known blockers
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `MIDNIGHT_NETWORK` | `local` | `local`, `preview`, or `preprod`. |
+| `MIDNIGHT_LOCAL_SEED` | well-known public devnet seed | Only used for `local`. |
+| `MIDNIGHT_PREVIEW_SEED` / `MIDNIGHT_PREVIEW_MNEMONIC` | (unset) | Exactly one required for `preview`. |
+| `MIDNIGHT_PREPROD_SEED` / `MIDNIGHT_PREPROD_MNEMONIC` | (unset) | Exactly one required for `preprod`. |
+| `MIDNIGHT_CONTRACT_ADDRESS` | (unset) | If set, the server joins this contract instead of deploying a new one on first use. |
+| `MIDNIGHT_PROOF_SERVER` | `http://127.0.0.1:6300` | Local proof server URL (same for every network). |
 
-1. **Full wallet + provider stack integration is unbuilt.** This is the single largest
-   remaining gap between "contract compiles and passes simulator tests" (done, verified)
-   and "ProofOps submits a real Midnight transaction" (not done). It requires the
-   `@midnight-ntwrk/midnight-js` provider APIs, a wallet (headless or Lace), and a running
-   proof server / indexer / node - each independently non-trivial and each requiring
-   network access this sandboxed session could not durably rely on for a hackathon demo.
-2. **Docker Desktop / a local devnet were not stood up for Midnight infrastructure.** The
-   default `docker-compose.yml` intentionally does not include Midnight's node/indexer/
-   proof-server services (see the comment in that file) because that setup was not
-   verified end-to-end here.
+Switching `VITE_PROOF_PROVIDER=midnight` with no server-side Midnight configuration does
+not crash the app: `GET /api/midnight/status` reports `configured: false` with an
+actionable message, the UI shows `MIDNIGHT NETWORK NOT READY`, and it never silently falls
+back to local mode.
 
 ## Local-demo vs. real Midnight, feature by feature
 
 | Feature | Status |
 | --- | --- |
 | Compact contract source | Real, compiles with official compiler |
-| Contract privacy semantics (assert before disclose) | Real, verified from compiled output |
+| Contract privacy semantics (assert before disclose) | Real, verified from compiled output and from a real rejected transaction |
 | Contract simulator tests | Real, run against `@midnight-ntwrk/compact-runtime` |
 | Evidence hashing / redaction / policy evaluation | Real, runs entirely in-browser |
 | `LOCAL_DEMO` receipts | Real (as what they claim to be: a local commitment, not a proof) |
-| On-chain transaction submission | Not implemented - explicit error, no fabrication |
-| Wallet integration | Not implemented |
-| Live devnet / testnet deployment | Not attempted |
+| Real headless wallet connect + sync | Real, against Local devnet and Preprod |
+| Real contract deploy / join | Real, on Local devnet (see `docs/MIDNIGHT_DEPLOYMENT.md`); Preprod blocked on DUST delegation (operator action required) |
+| Real `submitReceipt` transaction + confirmation | Real, on Local devnet; Preprod blocked on DUST delegation |
+| Independent ledger re-query | Real |
+| Policy-violation rejection (on real network) | Real |
+| Lace / browser wallet extension integration | Not implemented (headless wallet used instead, see above) |
+| Live Mainnet deployment | Not implemented, not attempted |

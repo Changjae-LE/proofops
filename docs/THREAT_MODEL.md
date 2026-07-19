@@ -58,11 +58,41 @@ evidence before hashing. No subresource integrity, no dependency pinning beyond
 
 ### Provider outage
 
-`MidnightProofProvider.getStatus()` performs a time-boxed reachability check
-(2s timeout) and reports a clear "not ready" status with a reason rather than hanging or
-silently retrying forever. `createReceipt()` on that provider throws a descriptive error
-instead of falling back to a local receipt while claiming it is a Midnight receipt - the
-receipt `status` field is the single source of truth for what actually happened.
+`MidnightProofProvider.getStatus()` queries this app's own `/api/midnight/status`
+endpoint and reports a clear "not ready"/"not configured" status with a reason rather than
+hanging or silently retrying forever. `createReceipt()` on that provider throws a
+descriptive error (propagated from the server) instead of falling back to a local receipt
+while claiming it is a Midnight receipt - the receipt `status` field is the single source
+of truth for what actually happened, and the server only ever returns `MIDNIGHT_CONFIRMED`
+after a real transaction has actually been confirmed on-chain.
+
+### New trust boundary: the private response time now transits this app's own server
+
+Real on-chain submission requires a wallet and the `@midnight-ntwrk/midnight-js-contracts`
+SDK, which cannot safely run in the browser (a wallet secret in a `VITE_*` env var would
+be inlined into the public bundle - see `docs/MIDNIGHT_STATUS.md`). The private
+`responseMinutes` witness value is therefore sent from the browser to this app's own
+`POST /api/midnight/receipt` endpoint (same origin, over the deployment's normal
+HTTPS/TLS), which reads once as a circuit witness and never persists or logs it
+(`server/midnight/receipt.ts` never calls `logger.*` with it, only with the contract
+address and transaction hash). This is a materially different trust boundary than the
+`LOCAL_DEMO` and offline-simulator paths, where the response time never leaves the
+browser at all. It is still asserted-then-discarded before any ledger write - it is never
+written to public chain state - but a fully trustless production design would instead run
+proof generation directly in the browser against a co-located/embedded proof server (no
+value transits any server), which was out of scope for this integration. This tradeoff is
+called out explicitly rather than left implicit.
+
+### Ledger overwrite (single-slot public state)
+
+The `proofops.compact` ledger has exactly one slot per field (`incidentIdHash`,
+`evidenceCommitment`, `policyLimitMinutes`, `policySatisfied`) plus a monotonic
+`receiptCount`. Each `submitReceipt` call **overwrites** the previous receipt's public
+fields rather than keyed-storing per-incident history. `MidnightProofProvider.verifyReceipt()`
+handles this honestly: if the current on-chain state doesn't match an older receipt, it
+reports a mismatch with an explicit note that this is expected (a newer receipt was
+submitted since) rather than implying tampering. A production version would use a `Map`
+ledger type keyed by incident ID hash to retain full history.
 
 ### Replay of receipts
 

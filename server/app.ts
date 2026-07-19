@@ -11,6 +11,7 @@ import {
   incrementVerifications,
   renderMetrics,
 } from "./metrics";
+import { createMidnightRouter } from "./midnightRoutes";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const STATIC_DIR = path.resolve(__dirname, "../dist");
@@ -87,6 +88,8 @@ export function createApp(): Express {
     logger.info("metric_event", { type });
     res.status(204).end();
   });
+
+  app.use("/api/midnight", createMidnightRouter());
 
   if (fs.existsSync(STATIC_DIR)) {
     app.use(express.static(STATIC_DIR));

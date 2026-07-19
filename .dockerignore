@@ -6,7 +6,12 @@ coverage
 .github
 .env
 .env.local
+.env.preview
+.env.preprod
 docs
 contract/tests
 tests
+tests/integration
+_midnight-reference
+midnight-private-state
 *.md

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { AppStatus } from "../App";
 import type { ProofProvider, ProviderStatus } from "../midnight/ProofProvider";
 
@@ -25,9 +25,14 @@ const APP_STATUS_LABELS: Record<AppStatus, string> = {
   "verification-failed": "Verification failed",
 };
 
+type WalletAction = "idle" | "connecting" | "deploying";
+
 export function SystemStatus({ provider, appStatus }: SystemStatusProps) {
   const [providerStatus, setProviderStatus] = useState<ProviderStatus | null>(null);
   const [backend, setBackend] = useState<BackendHealth>({ healthy: null, ready: null });
+  const [walletAction, setWalletAction] = useState<WalletAction>("idle");
+  const [walletError, setWalletError] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -37,7 +42,7 @@ export function SystemStatus({ provider, appStatus }: SystemStatusProps) {
     return () => {
       cancelled = true;
     };
-  }, [provider]);
+  }, [provider, refreshTick]);
 
   useEffect(() => {
     let cancelled = false;
@@ -60,8 +65,48 @@ export function SystemStatus({ provider, appStatus }: SystemStatusProps) {
     };
   }, []);
 
-  const modeLabel = providerStatus?.mode === "midnight" ? "MIDNIGHT NETWORK" : "LOCAL DEMO MODE";
-  const modeBadgeClass = providerStatus?.mode === "midnight" ? "badge-neutral" : "badge-amber";
+  const refresh = useCallback(() => setRefreshTick((t) => t + 1), []);
+
+  const handleConnect = useCallback(async () => {
+    if (!provider.connectWallet) return;
+    setWalletAction("connecting");
+    setWalletError(null);
+    try {
+      await provider.connectWallet();
+      refresh();
+    } catch (err) {
+      setWalletError(err instanceof Error ? err.message : "Wallet connection failed.");
+    } finally {
+      setWalletAction("idle");
+    }
+  }, [provider, refresh]);
+
+  const handleDeploy = useCallback(async () => {
+    if (!provider.deployContract) return;
+    setWalletAction("deploying");
+    setWalletError(null);
+    try {
+      await provider.deployContract();
+      refresh();
+    } catch (err) {
+      setWalletError(err instanceof Error ? err.message : "Contract deployment failed.");
+    } finally {
+      setWalletAction("idle");
+    }
+  }, [provider, refresh]);
+
+  const isMidnight = providerStatus?.mode === "midnight";
+  const modeLabel = isMidnight
+    ? providerStatus?.ready
+      ? "MIDNIGHT NETWORK"
+      : "MIDNIGHT NETWORK NOT READY"
+    : "LOCAL DEMO MODE";
+  const modeBadgeClass = isMidnight ? (providerStatus?.ready ? "badge-neutral" : "badge-danger") : "badge-amber";
+
+  // "Connected" here means the server-side wallet session has been established and is
+  // reachable, as reported by getStatus() - never inferred client-side.
+  const walletConnected = isMidnight && Boolean(providerStatus?.walletConnected);
+  const contractAddress = providerStatus?.contractAddress ?? null;
 
   return (
     <section className="card system-status" aria-label="System status">
@@ -72,8 +117,44 @@ export function SystemStatus({ provider, appStatus }: SystemStatusProps) {
           API:{" "}
           {backend.healthy === null ? "checking…" : backend.healthy ? "healthy" : "unreachable"}
         </span>
+        {isMidnight && (
+          <span className={`badge ${walletConnected ? "badge-success" : "badge-amber"}`}>
+            Wallet: {walletConnected ? "connected" : "not connected"}
+          </span>
+        )}
       </div>
       {providerStatus && <p className="status-text muted">{providerStatus.message}</p>}
+
+      {isMidnight && (
+        <div className="button-row">
+          {provider.connectWallet && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleConnect}
+              disabled={walletAction !== "idle"}
+            >
+              {walletAction === "connecting" ? "Connecting…" : "Connect Wallet"}
+            </button>
+          )}
+          {provider.deployContract && !contractAddress && (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={handleDeploy}
+              disabled={walletAction !== "idle" || !walletConnected}
+            >
+              {walletAction === "deploying" ? "Deploying…" : "Deploy Contract"}
+            </button>
+          )}
+          {contractAddress && <span className="badge badge-neutral mono">Contract: {contractAddress}</span>}
+        </div>
+      )}
+      {walletError && (
+        <p className="status-text status-error" role="alert">
+          {walletError}
+        </p>
+      )}
     </section>
   );
 }

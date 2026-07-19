@@ -6,7 +6,7 @@ import tseslint from "typescript-eslint";
 import prettier from "eslint-config-prettier";
 
 export default tseslint.config(
-  { ignores: ["dist", "dist-server", "contract/dist", "coverage", "node_modules"] },
+  { ignores: ["dist", "dist-server", "contract/dist", "coverage", "node_modules", "_midnight-reference"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended, prettier],
     files: ["**/*.{ts,tsx}"],
@@ -25,7 +25,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["server/**/*.ts", "scripts/**/*.mjs"],
+    files: ["server/**/*.ts", "scripts/**/*.{mjs,ts}", "contract/src/**/*.ts", "contract/tests/**/*.ts"],
     languageOptions: {
       globals: globals.node,
     },
