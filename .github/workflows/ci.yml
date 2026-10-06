@@ -55,8 +55,14 @@ jobs:
       - name: Install unzip (required by `compact update`)
         run: sudo apt-get update -y && sudo apt-get install -y unzip
 
-      - name: Update to the latest compact compiler
-        run: compact update
+      - name: Install verified Compact compiler 0.31.1
+        run: |
+          compact update 0.31.1
+          actual="$(compact compile --version | tr -d '[:space:]')"
+          if [ "$actual" != "0.31.1" ]; then
+            echo "::error::Compact compiler is $actual, expected 0.31.1"
+            exit 1
+          fi
 
       - name: Compile the ProofOps contract
         run: compact compile contract/src/proofops.compact contract/dist
