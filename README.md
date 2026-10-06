@@ -1,6 +1,6 @@
 # ProofOps
 
-**Privacy-Preserving Incident Verification for SRE and Security Teams**
+Privacy-Preserving Incident Verification for SRE and Security Teams
 
 > Prove incident response without exposing production logs. Raw evidence stays local -
 > only a commitment and a policy result are shared.
@@ -28,19 +28,19 @@ without revealing the data.
 
 ## How ProofOps works
 
-1. **Analyze locally.** The incident JSON is parsed and run through a deterministic
+1. Analyze locally. The incident JSON is parsed and run through a deterministic
    detection rule entirely in the browser. Nothing is uploaded.
-2. **Redact.** A recursive, case-insensitive redaction pass masks known-sensitive fields
+2. Redact. A recursive, case-insensitive redaction pass masks known-sensitive fields
    for side-by-side comparison with the original.
-3. **Commit.** The evidence is canonicalized (stable key ordering) and SHA-256 hashed via
+3. Commit. The evidence is canonicalized (stable key ordering) and SHA-256 hashed via
    the Web Crypto API - the same logical document always produces the same commitment.
-4. **Evaluate policy.** Response time (detection -> containment) is checked against a
+4. Evaluate policy. Response time (detection -> containment) is checked against a
    15-minute containment policy.
-5. **Generate a receipt.** A small, typed `VerificationReceipt` - commitments, rule ID,
+5. Generate a receipt. A small, typed `VerificationReceipt` - commitments, rule ID,
    policy result, provider, status - is produced. In this build that's a `LOCAL_DEMO`
    receipt by default; a Compact contract exists and is compiled/tested against the real
    Midnight toolchain for the on-chain path (see below).
-6. **Verify.** Anyone holding the receipt and a copy of the evidence can recompute the
+6. Verify. Anyone holding the receipt and a copy of the evidence can recompute the
    commitment and confirm nothing changed - or watch it fail the instant one field is
    tampered with.
 
@@ -90,7 +90,7 @@ docker compose up --build
 ```
 
 Serves the app at `http://localhost:8787` with `/healthz`, `/readyz`, and `/metrics`
-available immediately. The default profile is local-demo only - it does **not** require
+available immediately. The default profile is local-demo only - it does not require
 or start any Midnight network infrastructure.
 
 ## Tests
@@ -123,13 +123,13 @@ badge. A local receipt is never labeled as an on-chain proof.
 
 ## Current Midnight integration status
 
-**Real and verified:** the Compact contract (`contract/src/proofops.compact`) compiles
+Real and verified: the Compact contract (`contract/src/proofops.compact`) compiles
 with the official Compact compiler (0.31.1) and passes simulator tests against the real
 `@midnight-ntwrk/compact-runtime` (0.16.0) - see `contract/README.md` and
 [`docs/MIDNIGHT_STATUS.md`](docs/MIDNIGHT_STATUS.md) for exact versions, commands, and a
 Windows-specific finding (no official Windows binary; this repo auto-delegates to WSL).
 
-**Not implemented / not real:** on-chain transaction submission, wallet integration, and
+Not implemented / not real: on-chain transaction submission, wallet integration, and
 any live devnet/testnet deployment. `MidnightProofProvider` performs a real network
 reachability check but throws an explicit error on receipt creation rather than
 fabricating a transaction ID - see the same status doc for the honest reason why.
