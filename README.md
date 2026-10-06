@@ -2,8 +2,35 @@
 
 **Privacy-Preserving Incident Verification for SRE and Security Teams**
 
-> Prove incident response without exposing production logs. Raw evidence stays local -
-> only a commitment and a policy result are shared.
+Analyze incident evidence in the browser, evaluate a containment-time policy, and
+generate a receipt without uploading raw production logs.
+
+**Stack:** TypeScript · Node.js · Express · Docker · Vitest · GitHub Actions · Prometheus-compatible metrics
+
+**Implementation status:** the default flow produces a `LOCAL_DEMO` receipt.
+The Compact contract compiles and has simulator tests; wallet integration,
+on-chain submission, and live network deployment are not implemented.
+
+## Production Engineering
+
+| Capability | Implementation |
+|---|---|
+| Liveness | `/healthz` exposes service status and uptime |
+| Readiness reporting | `/readyz` reports whether the frontend build exists |
+| Metrics | Prometheus-compatible `/metrics` and fixed event-type counters |
+| Logging | Structured JSON application logs |
+| Shutdown | SIGTERM/SIGINT handling with a 10-second timeout |
+| Container runtime | Multi-stage non-root Docker image with a health check |
+| CI | Typecheck, lint, test, and build gates |
+| Operations | [Recovery runbook](docs/RUNBOOK.md) for health, build, provider, and verification failures |
+
+The Express service serves the frontend and operational telemetry. Incident
+analysis remains in the browser; the event endpoint accepts a fixed event type
+rather than incident evidence.
+
+**Readiness scope:** `/readyz` currently returns HTTP 200 even when its JSON status
+is `degraded`, and its provider flag does not probe network dependencies. This MVP
+does not yet provide a dependency-aware readiness gate.
 
 ## The problem
 
@@ -143,8 +170,8 @@ receipt, verify it, then tamper with one field and watch verification fail.
 ## Privacy guarantees
 
 - Raw evidence is never sent to the Express server or any third party.
-- The evidence commitment is a one-way SHA-256 hash; it cannot be reversed to recover the
-  original data.
+- The evidence commitment is a SHA-256 hash. It detects changes when recomputed;
+  it does not encrypt evidence or prevent guessing predictable inputs.
 - The Compact contract's private response time is a `witness` value used only inside an
   `assert` - it is never disclosed to public ledger state.
 - Metrics and server logs never contain incident content (see `docs/THREAT_MODEL.md`).
@@ -171,10 +198,3 @@ about private data without revealing the data - to a concrete, everyday SRE/secu
 workflow (incident response attestation) that currently has no good privacy-preserving
 answer.
 
-## Production Engineering relevance
-
-Structured JSON logs, `/healthz` + `/readyz` + Prometheus `/metrics`, graceful shutdown,
-security headers, a multi-stage non-root Docker build with a health check, CI with
-typecheck/lint/test/build gates, and an honest operational runbook
-(`docs/RUNBOOK.md`) - this MVP is built the way a production service's first version
-should be, not as a disposable demo.
